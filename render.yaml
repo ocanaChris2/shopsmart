@@ -50,14 +50,16 @@ services:
       - key:   STORAGE_BASE_URL
         value: https://storage.example.com/exports
 
-      - key:  CF_ZONE_ID
-        sync: false
+      # Optional — only needed if you set up Cloudflare cache purge.
+      # Leave blank or omit; empty string is handled safely by the app.
+      - key:   CF_ZONE_ID
+        value: ""
 
-      - key:  CF_API_TOKEN
-        sync: false
+      - key:   CF_API_TOKEN
+        value: ""
 
-      - key:  API_BASE_URL
-        sync: false
+      - key:   API_BASE_URL
+        value: ""
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Static Site — React / Vite SPA

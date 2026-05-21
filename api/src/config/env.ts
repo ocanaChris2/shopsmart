@@ -18,10 +18,12 @@ const schema = z.object({
   RATE_LIMIT_WINDOW_MS:  z.coerce.number().int().positive().default(60_000),
   AUTH_RATE_LIMIT_MAX:   z.coerce.number().int().positive().default(10),
 
-  // Cloudflare cache purge (optional — no-ops when absent)
-  CF_ZONE_ID:   z.string().optional(),
-  CF_API_TOKEN: z.string().optional(),
-  API_BASE_URL: z.string().url().optional().default('http://localhost:3000'),
+  // Cloudflare cache purge (optional — no-ops when absent).
+  // Use z.preprocess so Render's empty-string "" is treated as undefined,
+  // avoiding a URL validation failure when the field is left blank.
+  CF_ZONE_ID:   z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
+  CF_API_TOKEN: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
+  API_BASE_URL: z.preprocess((v) => v === '' ? undefined : v, z.string().url().optional()),
 });
 
 export type Env = z.infer<typeof schema>;
