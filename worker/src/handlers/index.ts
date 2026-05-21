@@ -1,5 +1,4 @@
 import { BaseHandler }                       from './baseHandler';
-import { BaseJobPayload }                    from '../types/jobs';
 import { GenerateDynamicExportHandler }      from './generateDynamicExport';
 import { ProcessAccountingReversalHandler }  from './processAccountingReversal';
 

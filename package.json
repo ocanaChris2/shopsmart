@@ -4,12 +4,10 @@
   "private": true,
   "description": "ShopSmart Universal ERP — Monorepo root",
   "scripts": {
-    "build":        "npm run build:api && npm run build:worker",
-    "build:api":    "cd api    && npm ci && npm run build",
-    "build:worker": "cd worker && npm ci && npm run build",
+    "build":        "bash scripts/build.sh",
     "start":        "pm2-runtime start ecosystem.config.js",
-    "dev:api":      "cd api    && npm run dev",
-    "dev:worker":   "cd worker && npm run dev",
+    "dev:api":      "npm run dev --prefix api",
+    "dev:worker":   "npm run dev --prefix worker",
     "migrate":      "psql \"$DIRECT_URL\" -f db/init.sql",
     "migrate:check": "psql \"$DIRECT_URL\" -c 'SELECT current_database(), now();'"
   },

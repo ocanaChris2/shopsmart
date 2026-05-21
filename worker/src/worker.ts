@@ -41,8 +41,8 @@ export async function startWorker(): Promise<PgBoss> {
 
     // Keep completed jobs for 7 days (useful for debugging).
     deleteAfterDays: 7,
-    // Keep permanently failed jobs for 30 days (compliance / audit).
-    archiveFailedAfterDays: 30,
+    // Keep permanently failed jobs for 30 days — pg-boss v9 uses *Seconds.
+    archiveFailedAfterSeconds: 30 * 24 * 3600,
   });
 
   // ── Lifecycle hooks ─────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ export async function startWorker(): Promise<PgBoss> {
   await boss.work<{ [key: string]: unknown }>(
     dlqJobName,
     { ...WORK_OPTIONS, newJobCheckIntervalSeconds: 30 },
-    (job) => dlqHandle(job as PgBoss.Job<import('./types/jobs').DlqJobPayload>),
+    (job) => dlqHandle(job as unknown as PgBoss.Job<import('./types/jobs').DlqJobPayload>),
   );
   console.info(`[worker] ✓ subscribed to DLQ: ${dlqJobName}`);
 

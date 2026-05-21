@@ -50,7 +50,12 @@ export abstract class BaseHandler<T extends BaseJobPayload> {
    */
   readonly handle = async (job: PgBoss.Job<T>): Promise<void> => {
     const { tenantId, userId } = job.data;
-    const meta: JobMeta = { jobId: job.id, retryCount: job.retrycount ?? 0 };
+    // pg-boss stores retry counters in lowercase DB columns; the TS types in
+    // v9 don't declare them so we read via a safe cast.
+    const jobAny   = job as unknown as Record<string, number>;
+    const retryCount = jobAny['retrycount'] ?? 0;
+    const retryLimit = jobAny['retrylimit'] ?? 3;
+    const meta: JobMeta = { jobId: job.id, retryCount };
 
     const client = await pool.connect();
 
@@ -74,12 +79,12 @@ export abstract class BaseHandler<T extends BaseJobPayload> {
     } catch (rawErr) {
       await client.query('ROLLBACK').catch(() => undefined);
 
-      const err      = rawErr instanceof Error ? rawErr : new Error(String(rawErr));
-      const isFinal  = (job.retrycount ?? 0) >= (job.retrylimit ?? 0);
+      const err     = rawErr instanceof Error ? rawErr : new Error(String(rawErr));
+      const isFinal = retryCount >= retryLimit;
 
       console.error(
         `[${this.jobName}] job=${job.id} tenant=${tenantId} ✗ failed` +
-        ` (attempt ${(job.retrycount ?? 0) + 1}/${(job.retrylimit ?? 0) + 1}):`,
+        ` (attempt ${retryCount + 1}/${retryLimit + 1}):`,
         err.message,
       );
 

@@ -10,13 +10,15 @@ export const QUEUES = {
 } as const;
 
 // ── Default send options (must match worker's expected retry config) ──────────
-const SEND_DEFAULTS: PgBoss.SendOptions = {
+// deadLetter exists at runtime in pg-boss v9+ but is missing from the v9 type
+// definitions — cast to avoid the spurious TS error.
+const SEND_DEFAULTS = {
   retryLimit:    3,
   retryDelay:    30,       // seconds; with retryBackoff = true: 30, 60, 120
   retryBackoff:  true,
   expireInHours: 24,
   deadLetter:    QUEUES.DLQ,
-};
+} as PgBoss.SendOptions;
 
 // ── Lazy singleton ────────────────────────────────────────────────────────────
 // pg-boss is initialised once on first use and reused for the lifetime of the
