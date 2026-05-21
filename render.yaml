@@ -1,0 +1,136 @@
+# =============================================================================
+#  render.yaml — Render Blueprint v2
+#  ShopSmart ERP — Infrastructure as Code
+#
+#  Services defined here:
+#    1. shopsmart-app-worker  — Web Service (API + pg-boss worker via PM2)
+#    2. shopsmart-frontend    — Static Site (React/Vite SPA)
+#
+#  The PostgreSQL database is hosted on Supabase (external) and is NOT defined
+#  here. All DB connectivity uses the Supabase Session Pooler (port 6543) for
+#  IPv4 compatibility with Render's free-tier outbound networking.
+#
+#  Deploy this blueprint:
+#    Render Dashboard → Blueprints → Connect Repository → render.yaml detected
+# =============================================================================
+
+services:
+  # ── 1. Web Service: Fastify API + pg-boss Worker (PM2-managed) ─────────────
+  - type:    web
+    name:    shopsmart-app-worker
+    runtime: node
+    plan:    free
+    region:  ohio                  # pick the region closest to your Supabase project
+
+    # Root is the monorepo root — both api/ and worker/ are built here.
+    rootDir: .
+
+    # Install root deps (pm2), build API, build Worker.
+    buildCommand: npm ci && npm run build
+
+    # pm2-runtime runs in the foreground — required for container environments.
+    # It manages both the API and Worker processes (see ecosystem.config.js).
+    startCommand: npm start
+
+    # Render uses this path to determine service health before routing traffic.
+    # Must return 2xx without requiring auth.
+    healthCheckPath: /health
+
+    # Render will auto-deploy when the main branch is pushed.
+    autoDeploy: true
+
+    envVars:
+      # ── Runtime ────────────────────────────────────────────────────────────
+      - key:   NODE_ENV
+        value: production
+
+      - key:   LOG_LEVEL
+        value: info
+
+      # ── Supabase Session Pooler (IPv4, port 6543) ──────────────────────────
+      # Format: postgresql://postgres.[PROJECT_REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+      # NEVER use the Direct Connection (port 5432) here — Render's free tier
+      # has IPv4-only outbound; the Supabase direct host is IPv6 only.
+      - key:   DATABASE_URL
+        sync:  false        # Render prompts for this value during first deploy
+
+      # ── Auth ───────────────────────────────────────────────────────────────
+      # Generate: openssl rand -hex 32
+      - key:   JWT_SECRET
+        sync:  false
+
+      - key:   JWT_EXPIRES_IN
+        value: 24h
+
+      # ── Connection pool ────────────────────────────────────────────────────
+      # Keep this small: Supabase free tier allows 60 total server connections.
+      # API pool (5) + Worker pool (3) + pg-boss internal (3) ≈ 11 connections.
+      - key:   DB_POOL_MAX
+        value: "5"
+
+      # ── Rate limiting ──────────────────────────────────────────────────────
+      - key:   RATE_LIMIT_MAX
+        value: "100"
+
+      - key:   RATE_LIMIT_WINDOW_MS
+        value: "60000"
+
+      - key:   AUTH_RATE_LIMIT_MAX
+        value: "10"
+
+      # ── Cloudflare cache purge (optional — no-ops when absent) ────────────
+      - key:   CF_ZONE_ID
+        sync:  false
+
+      - key:   CF_API_TOKEN
+        sync:  false
+
+      - key:   API_BASE_URL
+        sync:  false        # e.g. https://api.yourdomain.com
+
+      # ── Worker / storage ───────────────────────────────────────────────────
+      - key:   STORAGE_BASE_URL
+        value: https://storage.example.com/exports
+
+      - key:   JOB_POLL_INTERVAL_SECONDS
+        value: "5"
+
+  # ── 2. Static Site: React / Vite SPA ───────────────────────────────────────
+  - type:    static
+    name:    shopsmart-frontend
+    plan:    free
+
+    buildCommand:      cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+
+    autoDeploy: true
+
+    # ── Rewrite all paths to index.html so React Router handles navigation ───
+    # Without this, a direct hit to /dashboard/vehicles returns a 404.
+    routes:
+      - type:        rewrite
+        source:      /*
+        destination: /index.html
+
+    # ── Security headers (belt-and-suspenders alongside Cloudflare) ──────────
+    headers:
+      - path: /*
+        name:  X-Frame-Options
+        value: DENY
+      - path: /*
+        name:  X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name:  Referrer-Policy
+        value: strict-origin-when-cross-origin
+      # Static assets (hashed filenames): cache aggressively in the browser
+      - path: /assets/*
+        name:  Cache-Control
+        value: public, max-age=31536000, immutable
+
+    envVars:
+      - key:   VITE_API_BASE_URL
+        sync:  false        # e.g. https://api.yourdomain.com
+
+      - key:   VITE_APP_NAME
+        value: ShopSmart ERP

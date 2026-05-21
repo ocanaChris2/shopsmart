@@ -1,0 +1,44 @@
+# ── Node.js ───────────────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Environment files (NEVER commit secrets) ──────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+
+# ── Compiled output ───────────────────────────────────────────────────────────
+api/dist/
+worker/dist/
+frontend/dist/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+pm2.log
+.pm2/
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# ── TypeScript ────────────────────────────────────────────────────────────────
+*.tsbuildinfo
+*.d.ts.map
+
+# ── Test / Coverage ───────────────────────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── Render ────────────────────────────────────────────────────────────────────
+.render/

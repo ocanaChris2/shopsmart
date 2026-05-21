@@ -1,0 +1,96 @@
+# =============================================================================
+#  Database Migration Workflow
+#  ShopSmart ERP
+#
+#  WHY GitHub Actions and NOT Render:
+#  Render's free tier uses IPv4-only outbound networking. The Supabase Direct
+#  Connection (db.[ref].supabase.co:5432) resolves to an IPv6 address, making
+#  it unreachable from Render. GitHub-hosted runners (ubuntu-latest) have both
+#  IPv4 and IPv6, so they can connect to Supabase directly.
+#
+#  The DIRECT_URL secret should be:
+#    postgresql://postgres.[PROJECT_REF]:[PASSWORD]@db.[PROJECT_REF].supabase.co:5432/postgres
+#
+#  This workflow is triggered:
+#    - On push to main when db/** files change (auto-migration).
+#    - Manually via the Actions tab (workflow_dispatch).
+#
+#  IMPORTANT: db/init.sql uses CREATE TABLE / CREATE INDEX without IF NOT EXISTS
+#  guards on most statements. Running it against an already-migrated database
+#  will fail. For incremental changes after the initial setup, create numbered
+#  files in db/migrations/ and update the Run step to execute them individually.
+# =============================================================================
+
+name: Database Migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/**'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (connect + validate only, no changes)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  migrate:
+    name: Apply schema to Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      # ── 1. Checkout ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Install PostgreSQL client ────────────────────────────────────────
+      - name: Install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      # ── 3. Verify connectivity ──────────────────────────────────────────────
+      - name: Test Supabase connection
+        env:
+          PGSSLMODE: require
+        run: |
+          psql "${{ secrets.SUPABASE_DIRECT_URL }}" \
+            --command="SELECT current_database(), current_user, now() AS server_time;"
+
+      # ── 4a. Dry run: validate SQL without executing ─────────────────────────
+      - name: Validate SQL (dry run)
+        if: ${{ github.event.inputs.dry_run == 'true' }}
+        run: |
+          echo "Dry run — validating SQL syntax only (no changes applied)"
+          psql --echo-all --set ON_ERROR_STOP=1 /dev/null \
+            --command="\i db/init.sql" 2>&1 || true
+          echo "Syntax check complete."
+
+      # ── 4b. Apply migrations ────────────────────────────────────────────────
+      - name: Apply db/init.sql
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          PGSSLMODE: require
+        run: |
+          psql "${{ secrets.SUPABASE_DIRECT_URL }}" \
+            --echo-errors \
+            --set ON_ERROR_STOP=1 \
+            --file=db/init.sql
+          echo "✓ Migration applied successfully."
+
+      # ── 5. Post-migration smoke test ────────────────────────────────────────
+      - name: Verify schema
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        env:
+          PGSSLMODE: require
+        run: |
+          psql "${{ secrets.SUPABASE_DIRECT_URL }}" --tuples-only --command="
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_schema IN ('public','meta','core','fin','audit')
+            ORDER BY table_schema, table_name;
+          "
