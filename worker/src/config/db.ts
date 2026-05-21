@@ -1,13 +1,12 @@
 import { Pool } from 'pg';
 import { env } from './env';
 
-// Must use Supabase Session Pooler (port 6543) — same IPv4 constraint as the
-// API. The worker also relies on pg-boss, which requires LISTEN/NOTIFY; only
-// session-mode pooling supports this. See api/src/config/db.ts for full notes.
+// Session Pooler — aws-1-us-east-1.pooler.supabase.com:5432 (IPv4, Supavisor).
+// See api/src/config/db.ts for the full connection strategy explanation.
 export const pool = new Pool({
-  connectionString:        env.DATABASE_URL,  // Session Pooler URL (port 6543)
-  max:                     env.DB_POOL_MAX,   // ≤ 3 for worker; leaves room for API
-  connectionTimeoutMillis: 15_000,            // allow for DB un-pause delay
+  connectionString:        env.DATABASE_URL,
+  max:                     env.DB_POOL_MAX,
+  connectionTimeoutMillis: 15_000,
   idleTimeoutMillis:       30_000,
   ssl:                     { rejectUnauthorized: false },
 });

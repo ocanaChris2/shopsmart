@@ -21,8 +21,10 @@ services:
       - key:   LOG_LEVEL
         value: info
 
-      # Supabase Session Pooler — port 6543, IPv4-compatible (Render free tier)
-      # Format: postgresql://postgres.[REF]:[PWD]@aws-0-[REGION].pooler.supabase.com:6543/postgres
+      # Supabase Session Pooler — IPv4-compatible (Render free tier)
+      # Format: postgresql://postgres.[REF]:[PWD]@aws-1-us-east-1.pooler.supabase.com:5432/postgres
+      # Port 5432 on the POOLER HOST = Session mode (supports LISTEN/NOTIFY for pg-boss)
+      # Port 6543 on the POOLER HOST = Transaction mode (do NOT use — breaks pg-boss)
       - key:  DATABASE_URL
         sync: false
 
