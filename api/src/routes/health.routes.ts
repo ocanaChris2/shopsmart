@@ -75,14 +75,13 @@ export async function healthRoutes(fastify: FastifyInstance): Promise<void> {
           ts:        new Date().toISOString(),
         });
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unknown DB error';
-
+        // Log the real error internally but never expose DB internals to callers.
         fastify.log.error({ err }, '[keep-alive] DB query failed');
 
         return reply.status(503).send({
           status:  'error',
           db:      'query-failed',
-          message,
+          message: 'Database health check failed',
         });
       } finally {
         client.release();

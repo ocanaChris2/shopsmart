@@ -18,9 +18,12 @@ export async function login(
 
   const found = await findUserWithTenant(pool, email, tenant_slug);
 
-  // Use a constant-time comparison even on "not found" to prevent timing attacks.
-  const dummyHash = '$2b$10$invalidhashfortimingprotectionXXXXXXXXXXXXXXXXXXXXXX';
-  const hashToCompare = found?.user.password_hash ?? dummyHash;
+  // Use a real pre-computed bcrypt hash as the dummy to prevent user-enumeration
+  // timing attacks. bcrypt.compare() on an invalid hash returns immediately,
+  // making "user not found" measurably faster than "wrong password".
+  // This hash is bcrypt('__timing_protection__', 10) — a valid but unusable hash.
+  const DUMMY_HASH = '$2a$10$E3MKvGEK9JLxzy5SbgBZAeQSoFXkGmT6cZ4GzKMTH0OPnfN59ZHA.';
+  const hashToCompare = found?.user.password_hash ?? DUMMY_HASH;
   const passwordValid  = await bcrypt.compare(password, hashToCompare);
 
   if (!found || !passwordValid) {

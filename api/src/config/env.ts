@@ -26,6 +26,9 @@ const schema = z.object({
   RATE_LIMIT_WINDOW_MS:  z.coerce.number().int().positive().default(60_000),
   AUTH_RATE_LIMIT_MAX:   z.coerce.number().int().positive().default(10),
 
+  // Allowed frontend origin for CORS (e.g. https://app.yourdomain.com)
+  CORS_ORIGIN: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
+
   // Cloudflare cache purge (optional)
   CF_ZONE_ID:   z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),
   CF_API_TOKEN: z.preprocess((v) => v === '' ? undefined : v, z.string().optional()),

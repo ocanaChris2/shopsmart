@@ -1,4 +1,5 @@
 import Fastify, { FastifyInstance } from 'fastify';
+import fastifyCors        from '@fastify/cors';
 import fastifyHelmet      from '@fastify/helmet';
 import fastifyJwt         from '@fastify/jwt';
 import fastifyRateLimit   from '@fastify/rate-limit';
@@ -19,7 +20,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     genReqId: (req) =>
       (req.headers['x-request-id'] as string | undefined) ??
       `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-    trustProxy: true, // required to read X-Forwarded-For on Render
+    // Trust only the first proxy hop (Render's load balancer).
+    // 'true' trusts ALL X-Forwarded-For hops, which lets attackers spoof IPs
+    // to bypass rate limiting. '1' trusts only the outermost proxy.
+    trustProxy: 1,
   });
 
   // ── Decorate request BEFORE any plugin/route registers ────────────────────
@@ -27,6 +31,17 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.decorateRequest('db',       null);
   app.decorateRequest('tenantId', '');
   app.decorateRequest('userId',   '');
+
+  // ── CORS ─────────────────────────────────────────────────────────────────
+  // Restricts cross-origin requests to the known frontend origin.
+  // CORS_ORIGIN env var allows overriding per environment (e.g. localhost in dev).
+  await app.register(fastifyCors, {
+    origin: env.CORS_ORIGIN ?? false,   // false = reject all cross-origin by default
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400,
+  });
 
   // ── Security headers ──────────────────────────────────────────────────────
   // Helmet sets X-Content-Type-Options, X-Frame-Options, HSTS, etc.
@@ -71,7 +86,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ── JWT ───────────────────────────────────────────────────────────────────
   await app.register(fastifyJwt, {
     secret: env.JWT_SECRET,
-    sign:   { expiresIn: env.JWT_EXPIRES_IN },
+    // Explicitly lock to HS256 — prevents algorithm-confusion attacks where
+    // an attacker substitutes 'none' or an asymmetric algorithm.
+    // CVE mitigations for fast-jwt ≤ 6.2.3 bundled in @fastify/jwt ≤ 9.0.1.
+    sign:   { algorithm: 'HS256', expiresIn: env.JWT_EXPIRES_IN },
+    verify: { algorithms: ['HS256'] },
   });
 
   // ── Routes ────────────────────────────────────────────────────────────────
