@@ -1,3 +1,4 @@
+import 'dotenv/config';        // loads .env if present; no-op otherwise
 import { buildApp }            from './app';
 import { env }                 from './config/env';
 import { checkDbConnectivity } from './config/db';

@@ -1,3 +1,4 @@
+import 'dotenv/config';         // loads .env if present; no-op otherwise
 import { startWorker } from './worker';
 import { pool }        from './config/db';
 
