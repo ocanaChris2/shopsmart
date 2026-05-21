@@ -34,10 +34,15 @@ export async function startWorker(): Promise<PgBoss> {
   // session-persistent connection, which the Session Pooler (port 6543)
   // provides. The Transaction Pooler (port 5432 via pooler) would break
   // LISTEN/NOTIFY and cause pg-boss to fall back to polling only.
+  // Use individual params when available so the password is never URL-encoded.
+  const dbConfig = env.DB_HOST
+    ? { host: env.DB_HOST, port: env.DB_PORT, user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME }
+    : { connectionString: env.DATABASE_URL };
+
   const boss = new PgBoss({
-    connectionString: env.DATABASE_URL,   // Session Pooler URL (port 6543)
-    max:              3,                  // keep small — Supabase free = 60 total conns
-    ssl:              { rejectUnauthorized: false }, // Supabase requires SSL
+    ...dbConfig,
+    max: 3,
+    ssl: { rejectUnauthorized: false },
 
     // Keep completed jobs for 7 days (useful for debugging).
     deleteAfterDays: 7,

@@ -21,12 +21,23 @@ services:
       - key:   LOG_LEVEL
         value: info
 
-      # Supabase Session Pooler — IPv4-compatible (Render free tier)
-      # Format: postgresql://postgres.[REF]:[PWD]@aws-1-us-east-1.pooler.supabase.com:5432/postgres
-      # Port 5432 on the POOLER HOST = Session mode (supports LISTEN/NOTIFY for pg-boss)
-      # Port 6543 on the POOLER HOST = Transaction mode (do NOT use — breaks pg-boss)
-      - key:  DATABASE_URL
+      # Supabase Session Pooler — individual params avoid URL-encoding issues
+      # with passwords containing special characters (>, <, @, /, etc.)
+      - key:   DB_HOST
+        value: aws-1-us-east-1.pooler.supabase.com
+
+      - key:   DB_PORT
+        value: "5432"
+
+      - key:   DB_USER
+        value: postgres.rmzpevlqzyqwfqhlisjj
+
+      # Raw password — no URL encoding needed when using individual params
+      - key:  DB_PASSWORD
         sync: false
+
+      - key:   DB_NAME
+        value: postgres
 
       - key:  JWT_SECRET
         sync: false
